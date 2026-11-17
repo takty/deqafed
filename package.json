@@ -5,7 +5,8 @@
 	"type": "module",
 	"scripts": {
 		"dev": "node scripts/sync-opticm.mjs && vite",
-		"build": "tsc && node scripts/sync-opticm.mjs && vite build",
+		"build": "tauri build --no-bundle",
+		"build:frontend": "tsc && node scripts/sync-opticm.mjs && vite build",
 		"preview": "vite preview",
 		"tauri": "tauri"
 	},

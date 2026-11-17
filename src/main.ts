@@ -10,6 +10,11 @@ interface Editor {
   destroy(): void;
 }
 
+interface OpenedFile {
+  path: string;
+  text: string;
+}
+
 interface DocumentTab {
   path: string | null;
   name: string;
@@ -80,7 +85,7 @@ function activate(tab: DocumentTab): void {
   tab.editor.focus();
 }
 
-async function addTab(path: string | null = null, text = ''): Promise<void> {
+async function addTab(path: string | null = null, text = '', emptyTab?: DocumentTab): Promise<void> {
   const element = document.createElement('div');
   element.className = 'editor active';
   if (active) active.element.classList.remove('active');
@@ -92,8 +97,14 @@ async function addTab(path: string | null = null, text = ''): Promise<void> {
       path, name: path ? fileName(path) : `Untitled${++untitledCount}.java`,
       savedText: editor.getValue(), lineEnding: text.includes('\r\n') ? '\r\n' : '\n', element, editor,
     };
-    documents.push(tab);
     editor.on('change', render);
+    if (emptyTab && isEmptyTab(emptyTab)) {
+      documents[documents.indexOf(emptyTab)] = tab;
+      emptyTab.editor.destroy();
+      emptyTab.element.remove();
+    } else {
+      documents.push(tab);
+    }
     activate(tab);
   } catch (error) {
     element.remove();
@@ -111,11 +122,34 @@ function samePath(a: string | null, b: string): boolean {
 }
 
 async function openFile(): Promise<void> {
-  const file = await invoke<{ path: string; text: string } | null>('open_file');
+  const file = await invoke<OpenedFile | null>('open_file');
   if (!file) return;
   const existing = documents.find(tab => samePath(tab.path, file.path));
   if (existing) activate(existing);
   else await addTab(file.path, file.text);
+}
+
+function isEmptyTab(tab: DocumentTab): boolean {
+  return tab.path === null && tab.editor.getValue() === '' && !dirty(tab);
+}
+
+async function openDroppedFiles(paths: string[]): Promise<void> {
+  const errors: string[] = [];
+  for (const path of paths) {
+    const existing = documents.find(tab => samePath(tab.path, path));
+    if (existing) {
+      activate(existing);
+      continue;
+    }
+    try {
+      const file = await invoke<OpenedFile>('read_dropped_file', { path });
+      const emptyTab = isEmptyTab(active) ? active : documents.find(isEmptyTab);
+      await addTab(file.path, file.text, emptyTab);
+    } catch (error) {
+      errors.push(`${path}\n${String(error)}`);
+    }
+  }
+  if (errors.length) window.alert(errors.join('\n\n'));
 }
 
 async function save(tab: DocumentTab, saveAs = false): Promise<boolean> {
@@ -255,3 +289,6 @@ await getCurrentWindow().onCloseRequested(event => {
   void run(closeWindow);
 });
 await run(() => addTab());
+await getCurrentWindow().onDragDropEvent(({ payload }) => {
+  if (payload.type === 'drop') void run(() => openDroppedFiles(payload.paths));
+});

@@ -11,8 +11,17 @@ fn open_file() -> Result<Option<OpenedFile>, String> {
     let Some(path) = rfd::FileDialog::new().add_filter("Java files", &["java"]).add_filter("All files", &["*"]).pick_file() else {
         return Ok(None);
     };
-    let text = fs::read_to_string(&path).map_err(|e| format!("Failed to read the file: {e}"))?;
-    Ok(Some(OpenedFile { path: path.to_string_lossy().into_owned(), text }))
+    read_opened_file(&path).map(Some)
+}
+
+#[tauri::command]
+async fn read_dropped_file(path: PathBuf) -> Result<OpenedFile, String> {
+    read_opened_file(&path)
+}
+
+fn read_opened_file(path: &Path) -> Result<OpenedFile, String> {
+    let text = fs::read_to_string(path).map_err(|e| format!("Failed to read the file: {e}"))?;
+    Ok(OpenedFile { path: path.to_string_lossy().into_owned(), text })
 }
 
 #[tauri::command]
@@ -58,7 +67,7 @@ fn open_terminal(path: String) -> Result<(), String> {
 #[cfg_attr(mobile, tauri::mobile_entry_point)]
 pub fn run() {
     tauri::Builder::default()
-        .invoke_handler(tauri::generate_handler![open_file, save_file, confirm_save, open_terminal])
+        .invoke_handler(tauri::generate_handler![open_file, read_dropped_file, save_file, confirm_save, open_terminal])
         .run(tauri::generate_context!())
         .expect("error while running tauri application");
 }

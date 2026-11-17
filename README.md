@@ -23,7 +23,7 @@ yarn tauri dev
 
 The project uses Yarn's `node-modules` linker for compatibility with Vite on Windows. Run `yarn install` after changing linker settings so the dependencies are installed in `node_modules`.
 
-Run `yarn tauri build` to create a distributable build.
+Run `yarn build` to create the release executable at `src-tauri/target/release/deqafed.exe`. Run `yarn tauri build` to also generate installers. Use `yarn build:frontend` to build the frontend in `dist`.
 
 ## Usage
 
@@ -39,4 +39,4 @@ Opticm is installed from `takty/opticm` on GitHub. To refresh the commit pinned 
 yarn up -R opticm
 ```
 
-Run `yarn dev` or `yarn build` to refresh Vite's public assets from the installed package. The editor, stylesheet, workers, Wasm files, and licenses are copied together.
+Run `yarn dev` or `yarn build:frontend` to refresh Vite's public assets from the installed package. The editor, stylesheet, workers, Wasm files, and licenses are copied together.
