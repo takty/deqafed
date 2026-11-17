@@ -17,6 +17,7 @@ node_modules
 !.yarn/versions
 dist
 dist-ssr
+/.generated-public/
 *.local
 
 # Editor directories and files

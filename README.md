@@ -31,4 +31,12 @@ Use the File menu to create, open, save, and close tabs. Deqafed asks before clo
 
 Files are read and written as UTF-8. If a file contains CRLF line endings, CRLF is used when saving it. Java completion and formatting are not yet implemented in opticm.
 
-The `public/opticm` directory contains the opticm build and dependency licenses. When updating opticm, update its Java worker, Wasm files, and CSS together.
+## Updating Opticm
+
+Opticm is installed from `takty/opticm` on GitHub. To refresh the commit pinned in `yarn.lock`, run:
+
+```sh
+yarn up -R opticm
+```
+
+Run `yarn dev` or `yarn build` to refresh Vite's public assets from the installed package. The editor, stylesheet, workers, Wasm files, and licenses are copied together.
