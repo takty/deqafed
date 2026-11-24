@@ -1394,7 +1394,7 @@ __metadata:
 
 "opticm@github:takty/opticm#main":
   version: 0.1.0
-  resolution: "opticm@https://github.com/takty/opticm.git#commit=96e65e6111f7994a3fdece56ea2537d1d677f388"
+  resolution: "opticm@https://github.com/takty/opticm.git#commit=a774529652ad7f38d9b591f772f55d1a248dea7c"
   dependencies:
     "@codemirror/autocomplete": "npm:6.20.4"
     "@codemirror/commands": "npm:6.11.1"
@@ -1415,7 +1415,7 @@ __metadata:
     tern: "npm:0.24.3"
     tree-sitter-java: "npm:0.23.5"
     web-tree-sitter: "npm:0.27.2"
-  checksum: 10c0/9e5ce9e3e3864599e0501f0d74ff966a3beb32ff463198f8373c64167c6a001a1cee044cda45191df42cb767958c93eb56f6294a4c9575336c533ffdc2209285
+  checksum: 10c0/ffd51fce4923172fefa04e731d425bcd72ea506acdec033e56232be310383bd90ad1d90ec7789dc8561aae86adcf8154acc059871965e76ac78b87993e217b64
   languageName: node
   linkType: hard
 

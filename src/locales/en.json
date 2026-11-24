@@ -1,0 +1,69 @@
+{
+  "menu": {
+    "label": "Menu",
+    "file": "File",
+    "edit": "Edit",
+    "options": "Options",
+    "tools": "Tools",
+    "new": "New",
+    "open": "Open...",
+    "save": "Save",
+    "saveAs": "Save As...",
+    "closeTab": "Close Tab",
+    "exit": "Exit",
+    "undo": "Undo",
+    "redo": "Redo",
+    "cut": "Cut",
+    "copy": "Copy",
+    "paste": "Paste",
+    "selectAll": "Select All",
+    "find": "Find",
+    "replace": "Replace",
+    "openTerminal": "Open Terminal in File Location",
+    "language": "Language"
+  },
+  "languages": {
+    "en": "English",
+    "ja": "Japanese"
+  },
+  "editorOptions": {
+    "structureHighlight": "Structure highlighting",
+    "declarationHighlight": "Declaration highlighting",
+    "referenceHighlight": "Reference highlighting",
+    "syntaxHighlight": "Syntax highlighting",
+    "semanticHighlight": "Semantic highlighting",
+    "functionScrollMarkers": "Function scroll markers",
+    "bracketMatching": "Bracket matching",
+    "closeBrackets": "Automatically close brackets and quotes",
+    "closeBraces": "Include curly braces",
+    "easyLineSelection": "Easy line selection",
+    "rulers": "Indentation guides"
+  },
+  "tabs": {
+    "label": "Open files",
+    "untitled": "Untitled{number}.java",
+    "close": "Close {name}"
+  },
+  "dialogs": {
+    "javaFiles": "Java files",
+    "allFiles": "All files",
+    "saveChanges": "Save Changes",
+    "confirmSave": "Do you want to save changes to \"{name}\"?",
+    "save": "Save",
+    "discard": "Don't Save",
+    "cancel": "Cancel"
+  },
+  "status": {
+    "unsaved": "Save the file to choose a location",
+    "saveFirst": "Save the file first."
+  },
+  "errors": {
+    "loadEditor": "Failed to load the editor: {detail}",
+    "readFile": "Failed to read the file: {detail}",
+    "saveFile": "Failed to save the file: {detail}",
+    "fileAlreadyOpen": "That file is already open in another tab.",
+    "fileDirectory": "Could not determine the file's directory.",
+    "openTerminal": "Failed to open the terminal: {detail}",
+    "terminalUnavailable": "This feature is available on Windows."
+  }
+}

@@ -1,0 +1,69 @@
+{
+  "menu": {
+    "label": "メニュー",
+    "file": "ファイル",
+    "edit": "編集",
+    "options": "オプション",
+    "tools": "ツール",
+    "new": "新規作成",
+    "open": "開く...",
+    "save": "保存",
+    "saveAs": "名前を付けて保存...",
+    "closeTab": "タブを閉じる",
+    "exit": "終了",
+    "undo": "元に戻す",
+    "redo": "やり直す",
+    "cut": "切り取り",
+    "copy": "コピー",
+    "paste": "貼り付け",
+    "selectAll": "すべて選択",
+    "find": "検索",
+    "replace": "置換",
+    "openTerminal": "ファイルの場所でターミナルを開く",
+    "language": "言語"
+  },
+  "languages": {
+    "en": "英語",
+    "ja": "日本語"
+  },
+  "editorOptions": {
+    "structureHighlight": "構造のハイライト",
+    "declarationHighlight": "宣言のハイライト",
+    "referenceHighlight": "参照のハイライト",
+    "syntaxHighlight": "構文のハイライト",
+    "semanticHighlight": "意味に基づくハイライト",
+    "functionScrollMarkers": "関数のスクロールマーカー",
+    "bracketMatching": "対応する括弧の強調",
+    "closeBrackets": "括弧と引用符を自動で閉じる",
+    "closeBraces": "波括弧も自動で閉じる",
+    "easyLineSelection": "簡易行選択",
+    "rulers": "インデントガイド"
+  },
+  "tabs": {
+    "label": "開いているファイル",
+    "untitled": "無題{number}.java",
+    "close": "{name} を閉じる"
+  },
+  "dialogs": {
+    "javaFiles": "Java ファイル",
+    "allFiles": "すべてのファイル",
+    "saveChanges": "変更を保存",
+    "confirmSave": "「{name}」への変更を保存しますか？",
+    "save": "保存",
+    "discard": "保存しない",
+    "cancel": "キャンセル"
+  },
+  "status": {
+    "unsaved": "保存するとファイルの場所を指定できます",
+    "saveFirst": "先にファイルを保存してください。"
+  },
+  "errors": {
+    "loadEditor": "エディターを読み込めませんでした（{detail}）",
+    "readFile": "ファイルを読み込めませんでした（{detail}）",
+    "saveFile": "ファイルを保存できませんでした（{detail}）",
+    "fileAlreadyOpen": "そのファイルは別のタブですでに開いています。",
+    "fileDirectory": "ファイルの場所を取得できませんでした。",
+    "openTerminal": "ターミナルを開けませんでした（{detail}）",
+    "terminalUnavailable": "この機能は Windows で利用できます。"
+  }
+}

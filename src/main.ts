@@ -1,25 +1,19 @@
 import { invoke } from '@tauri-apps/api/core';
 import { getCurrentWindow } from '@tauri-apps/api/window';
+import en from './locales/en.json';
+import ja from './locales/ja.json';
 
-const editorOptions = {
-  structureHighlight: 'Structure highlighting',
-  declarationHighlight: 'Declaration highlighting',
-  referenceHighlight: 'Reference highlighting',
-  syntaxHighlight: 'Syntax highlighting',
-  semanticHighlight: 'Semantic highlighting',
-  functionScrollMarkers: 'Function scroll markers',
-  bracketMatching: 'Bracket matching',
-  closeBrackets: 'Automatically close brackets and quotes',
-  closeBraces: 'Include curly braces',
-  easyLineSelection: 'Easy line selection',
-  rulers: 'Indentation guides',
-} as const;
-type EditorOption = keyof typeof editorOptions;
-type EditorSettings = Record<EditorOption, boolean>;
+const languages = ['en', 'ja'] as const;
+type Language = typeof languages[number];
+const resources: Record<Language, typeof en> = { en, ja };
+type EditorOption = keyof typeof en.editorOptions;
+type EditorSettings = Record<EditorOption, boolean> & { language: Language };
 
-const editorOptionKeys = Object.keys(editorOptions) as EditorOption[];
+const editorOptionKeys = Object.keys(en.editorOptions) as EditorOption[];
 const editorSettingsKey = 'deqafed.editorSettings';
 const editorSettings = loadEditorSettings();
+let language = editorSettings.language ?? 'en';
+let messages = resources[language];
 
 interface Editor {
   getValue(): string;
@@ -39,7 +33,7 @@ interface OpenedFile {
 
 interface DocumentTab {
   path: string | null;
-  name: string;
+  untitledNumber: number;
   savedText: string;
   lineEnding: '\n' | '\r\n';
   element: HTMLDivElement;
@@ -64,24 +58,54 @@ function loadEditorSettings(): Partial<EditorSettings> {
   const settings: Partial<EditorSettings> = {};
   try {
     const saved = JSON.parse(localStorage.getItem(editorSettingsKey) ?? 'null');
+    if (saved?.language === 'en' || saved?.language === 'ja') settings.language = saved.language;
     for (const key of editorOptionKeys) {
       const value = saved?.[key];
       if (typeof value === 'boolean') settings[key] = value;
     }
   } catch {
-    // Use Opticm's defaults if the saved settings cannot be read.
+    // Use the defaults if the saved settings cannot be read.
   }
   return settings;
 }
 
 function toggleEditorOption(option: EditorOption): void {
-  const value = !active.editor.getSettings()[option];
+  applyEditorSettings({ [option]: !active.editor.getSettings()[option] });
+}
+
+function applyEditorSettings(patch: Partial<EditorSettings>): void {
   for (const tab of documents) {
-    tab.editor.setSettings({ [option]: value });
+    tab.editor.setSettings(patch);
   }
-  editorSettings[option] = value;
-  active.editor.focus();
+  Object.assign(editorSettings, patch);
+  active?.editor.focus();
   localStorage.setItem(editorSettingsKey, JSON.stringify(editorSettings));
+}
+
+function setLanguage(next: Language): void {
+  if (language === next) {
+    active?.editor.focus();
+    return;
+  }
+  language = next;
+  messages = resources[language];
+  renderMenu();
+  render();
+  applyEditorSettings({ language });
+}
+
+function formatMessage(template: string, key: string, value: string): string {
+  return template.replace(`{${key}}`, () => value);
+}
+
+function errorMessage(error: unknown): string {
+  if (typeof error === 'object' && error !== null && 'key' in error
+      && typeof error.key === 'string' && Object.hasOwn(messages.errors, error.key)) {
+    const template = messages.errors[error.key as keyof typeof messages.errors];
+    const detail = 'detail' in error ? String(error.detail) : '';
+    return formatMessage(template, 'detail', detail);
+  }
+  return error instanceof Error ? error.message : String(error);
 }
 
 function loadEditorModule(): Promise<EditorModule> {
@@ -89,7 +113,7 @@ function loadEditorModule(): Promise<EditorModule> {
     const moduleUrl = new URL('/opticm/opticm.min.js', window.location.href).href;
     editorModule = (import(/* @vite-ignore */ moduleUrl) as Promise<EditorModule>).catch(error => {
       editorModule = undefined;
-      throw new Error(`Failed to load the editor: ${String(error)}`);
+      throw new Error(formatMessage(messages.errors.loadEditor, 'detail', String(error)));
     });
   }
   return editorModule;
@@ -97,6 +121,12 @@ function loadEditorModule(): Promise<EditorModule> {
 
 function dirty(tab: DocumentTab): boolean {
   return tab.editor.getValue() !== tab.savedText;
+}
+
+function tabName(tab: DocumentTab): string {
+  return tab.path === null
+    ? formatMessage(messages.tabs.untitled, 'number', String(tab.untitledNumber))
+    : fileName(tab.path);
 }
 
 function render(): void {
@@ -108,20 +138,21 @@ function render(): void {
     item.setAttribute('aria-selected', String(tab === active));
     const label = document.createElement('span');
     label.className = 'tab-label';
-    label.textContent = `${dirty(tab) ? '● ' : ''}${tab.name}`;
-    label.title = tab.path ?? tab.name;
+    const name = tabName(tab);
+    label.textContent = `${dirty(tab) ? '● ' : ''}${name}`;
+    label.title = tab.path ?? name;
     label.addEventListener('click', () => activate(tab));
     const close = document.createElement('button');
     close.className = 'tab-close';
     close.textContent = '×';
-    close.setAttribute('aria-label', `Close ${tab.name}`);
+    close.setAttribute('aria-label', formatMessage(messages.tabs.close, 'name', name));
     close.addEventListener('click', () => run(() => closeTab(tab)));
     item.append(label, close);
     tabs.append(item);
     tab.element.classList.toggle('active', tab === active);
   }
-  status.textContent = active ? (active.path ?? 'Save the file to choose a location') : '';
-  document.title = active ? `${dirty(active) ? '● ' : ''}${active.name} - Deqafed` : 'Deqafed';
+  status.textContent = active ? (active.path ?? messages.status.unsaved) : '';
+  document.title = active ? `${dirty(active) ? '● ' : ''}${tabName(active)} - Deqafed` : 'Deqafed';
 }
 
 function activate(tab: DocumentTab): void {
@@ -139,10 +170,10 @@ async function addTab(path: string | null = null, text = '', emptyTab?: Document
   try {
     const { createEditor } = await loadEditorModule();
     const editor = await createEditor(element, {
-      ...editorSettings, value: text, language: 'ja', codeLanguage: 'java',
+      ...editorSettings, value: text, language, codeLanguage: 'java',
     });
     const tab: DocumentTab = {
-      path, name: path ? fileName(path) : `Untitled${++untitledCount}.java`,
+      path, untitledNumber: path === null ? ++untitledCount : 0,
       savedText: editor.getValue(), lineEnding: text.includes('\r\n') ? '\r\n' : '\n', element, editor,
     };
     editor.on('change', render);
@@ -170,7 +201,8 @@ function samePath(a: string | null, b: string): boolean {
 }
 
 async function openFile(): Promise<void> {
-  const file = await invoke<OpenedFile | null>('open_file');
+  const { javaFiles, allFiles } = messages.dialogs;
+  const file = await invoke<OpenedFile | null>('open_file', { javaFiles, allFiles });
   if (!file) return;
   const existing = documents.find(tab => samePath(tab.path, file.path));
   if (existing) activate(existing);
@@ -194,7 +226,7 @@ async function openDroppedFiles(paths: string[]): Promise<void> {
       const emptyTab = isEmptyTab(active) ? active : documents.find(isEmptyTab);
       await addTab(file.path, file.text, emptyTab);
     } catch (error) {
-      errors.push(`${path}\n${String(error)}`);
+      errors.push(`${path}\n${errorMessage(error)}`);
     }
   }
   if (errors.length) window.alert(errors.join('\n\n'));
@@ -204,10 +236,12 @@ async function save(tab: DocumentTab, saveAs = false): Promise<boolean> {
   const text = tab.editor.getValue();
   const otherPaths = documents.filter(other => other !== tab && other.path).map(other => other.path);
   const output = tab.lineEnding === '\r\n' ? text.replace(/\r?\n/g, '\r\n') : text;
-  const path = await invoke<string | null>('save_file', { path: saveAs ? null : tab.path, name: tab.name, text: output, otherPaths });
+  const path = await invoke<string | null>('save_file', {
+    path: saveAs ? null : tab.path, name: tabName(tab), text: output, otherPaths,
+    javaFiles: messages.dialogs.javaFiles,
+  });
   if (!path) return false;
   tab.path = path;
-  tab.name = fileName(path);
   tab.savedText = text;
   render();
   return true;
@@ -216,7 +250,14 @@ async function save(tab: DocumentTab, saveAs = false): Promise<boolean> {
 async function mayClose(tab: DocumentTab): Promise<boolean> {
   if (!dirty(tab)) return true;
   activate(tab);
-  const answer = await invoke<string>('confirm_save', { name: tab.name });
+  const labels = messages.dialogs;
+  const answer = await invoke<string>('confirm_save', {
+    title: labels.saveChanges,
+    description: formatMessage(labels.confirmSave, 'name', tabName(tab)),
+    save: labels.save,
+    discard: labels.discard,
+    cancel: labels.cancel,
+  });
   if (answer === 'save') return save(tab);
   return answer === 'discard';
 }
@@ -244,7 +285,7 @@ async function run(action: () => void | Promise<unknown>): Promise<void> {
   if (busy) return;
   busy = true;
   try { await action(); }
-  catch (error) { window.alert(String(error)); }
+  catch (error) { window.alert(errorMessage(error)); }
   finally { busy = false; }
 }
 
@@ -254,44 +295,77 @@ type MenuItem = {
   option?: EditorOption;
   action: () => void | Promise<unknown>;
 } | null;
-const groups: [string, MenuItem[]][] = [
-  ['File', [
-    { label: 'New', shortcut: 'Ctrl+N', action: () => addTab() },
-    { label: 'Open...', shortcut: 'Ctrl+O', action: openFile },
-    { label: 'Save', shortcut: 'Ctrl+S', action: () => save(active) },
-    { label: 'Save As...', shortcut: 'Ctrl+Shift+S', action: () => save(active, true) },
-    null,
-    { label: 'Close Tab', shortcut: 'Ctrl+W', action: () => closeTab(active) },
-    { label: 'Exit', action: closeWindow },
-  ]],
-  ['Edit', [
-    { label: 'Undo', shortcut: 'Ctrl+Z', action: () => active.editor.execute('undo') },
-    { label: 'Redo', shortcut: 'Ctrl+Y', action: () => active.editor.execute('redo') },
-    null,
-    { label: 'Cut', shortcut: 'Ctrl+X', action: () => active.editor.execute('cut') },
-    { label: 'Copy', shortcut: 'Ctrl+C', action: () => active.editor.execute('copy') },
-    { label: 'Paste', shortcut: 'Ctrl+V', action: () => active.editor.execute('paste') },
-    { label: 'Select All', shortcut: 'Ctrl+A', action: () => active.editor.execute('selectAll') },
-    null,
-    { label: 'Find', shortcut: 'Ctrl+F', action: () => active.editor.execute('find') },
-    { label: 'Replace', shortcut: 'Ctrl+H', action: () => active.editor.execute('replace') },
-  ]],
-  ['Options', editorOptionKeys.map(option => ({
-    label: editorOptions[option], option, action: () => toggleEditorOption(option),
-  }))],
-  ['Tools', [
-    { label: 'Open Terminal in File Location', action: async () => {
-      if (!active.path) { window.alert('Save the file first.'); return; }
-      await invoke('open_terminal', { path: active.path });
-    } },
-  ]],
-];
 
 function closeMenus(): void {
   menu.querySelectorAll('.open').forEach(item => item.classList.remove('open'));
 }
 
-for (const [name, items] of groups) {
+function renderMenu(): void {
+  const labels = messages.menu;
+  document.documentElement.lang = language;
+  menu.setAttribute('aria-label', labels.label);
+  tabs.setAttribute('aria-label', messages.tabs.label);
+  menu.replaceChildren();
+  renderMenuGroup(labels.file, [
+    { label: labels.new, shortcut: 'Ctrl+N', action: () => addTab() },
+    { label: labels.open, shortcut: 'Ctrl+O', action: openFile },
+    { label: labels.save, shortcut: 'Ctrl+S', action: () => save(active) },
+    { label: labels.saveAs, shortcut: 'Ctrl+Shift+S', action: () => save(active, true) },
+    null,
+    { label: labels.closeTab, shortcut: 'Ctrl+W', action: () => closeTab(active) },
+    { label: labels.exit, action: closeWindow },
+  ]);
+  renderMenuGroup(labels.edit, [
+    { label: labels.undo, shortcut: 'Ctrl+Z', action: () => active.editor.execute('undo') },
+    { label: labels.redo, shortcut: 'Ctrl+Y', action: () => active.editor.execute('redo') },
+    null,
+    { label: labels.cut, shortcut: 'Ctrl+X', action: () => active.editor.execute('cut') },
+    { label: labels.copy, shortcut: 'Ctrl+C', action: () => active.editor.execute('copy') },
+    { label: labels.paste, shortcut: 'Ctrl+V', action: () => active.editor.execute('paste') },
+    { label: labels.selectAll, shortcut: 'Ctrl+A', action: () => active.editor.execute('selectAll') },
+    null,
+    { label: labels.find, shortcut: 'Ctrl+F', action: () => active.editor.execute('find') },
+    { label: labels.replace, shortcut: 'Ctrl+H', action: () => active.editor.execute('replace') },
+  ]);
+  const options = renderMenuGroup(labels.options, [
+    ...editorOptionKeys.map(option => ({
+      label: messages.editorOptions[option], option, action: () => toggleEditorOption(option),
+    })),
+    null,
+  ]);
+  const languageGroup = document.createElement('div');
+  languageGroup.setAttribute('role', 'group');
+  languageGroup.setAttribute('aria-label', labels.language);
+  const heading = document.createElement('div');
+  heading.className = 'menu-heading';
+  heading.setAttribute('aria-hidden', 'true');
+  heading.textContent = labels.language;
+  languageGroup.append(heading);
+  for (const choice of languages) {
+    const entry = document.createElement('button');
+    entry.className = 'menu-item';
+    entry.setAttribute('role', 'menuitemradio');
+    entry.setAttribute('aria-checked', String(choice === language));
+    entry.textContent = messages.languages[choice];
+    entry.addEventListener('click', () => {
+      closeMenus();
+      void run(() => setLanguage(choice));
+    });
+    languageGroup.append(entry);
+  }
+  options.append(languageGroup);
+  renderMenuGroup(labels.tools, [
+    { label: labels.openTerminal, action: async () => {
+      if (!active.path) {
+        window.alert(messages.status.saveFirst);
+        return;
+      }
+      await invoke('open_terminal', { path: active.path });
+    } },
+  ]);
+}
+
+function renderMenuGroup(name: string, items: MenuItem[]): HTMLDivElement {
   const group = document.createElement('div');
   group.className = 'menu-group';
   const button = document.createElement('button');
@@ -339,8 +413,10 @@ for (const [name, items] of groups) {
   }
   group.append(button, popup);
   menu.append(group);
+  return popup;
 }
 
+renderMenu();
 document.addEventListener('click', event => { if (!menu.contains(event.target as Node)) closeMenus(); });
 document.addEventListener('keydown', event => {
   if (event.key === 'Escape') closeMenus();
