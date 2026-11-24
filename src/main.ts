@@ -1,8 +1,30 @@
 import { invoke } from '@tauri-apps/api/core';
 import { getCurrentWindow } from '@tauri-apps/api/window';
 
+const editorOptions = {
+  structureHighlight: 'Structure highlighting',
+  declarationHighlight: 'Declaration highlighting',
+  referenceHighlight: 'Reference highlighting',
+  syntaxHighlight: 'Syntax highlighting',
+  semanticHighlight: 'Semantic highlighting',
+  functionScrollMarkers: 'Function scroll markers',
+  bracketMatching: 'Bracket matching',
+  closeBrackets: 'Automatically close brackets and quotes',
+  closeBraces: 'Include curly braces',
+  easyLineSelection: 'Easy line selection',
+  rulers: 'Indentation guides',
+} as const;
+type EditorOption = keyof typeof editorOptions;
+type EditorSettings = Record<EditorOption, boolean>;
+
+const editorOptionKeys = Object.keys(editorOptions) as EditorOption[];
+const editorSettingsKey = 'deqafed.editorSettings';
+const editorSettings = loadEditorSettings();
+
 interface Editor {
   getValue(): string;
+  getSettings(): EditorSettings;
+  setSettings(patch: Partial<EditorSettings>): void;
   on(type: string, listener: () => void): () => void;
   execute(command: string): void;
   focus(): void;
@@ -37,6 +59,30 @@ type EditorModule = {
   createEditor(element: HTMLElement, options: object): Promise<Editor>;
 };
 let editorModule: Promise<EditorModule> | undefined;
+
+function loadEditorSettings(): Partial<EditorSettings> {
+  const settings: Partial<EditorSettings> = {};
+  try {
+    const saved = JSON.parse(localStorage.getItem(editorSettingsKey) ?? 'null');
+    for (const key of editorOptionKeys) {
+      const value = saved?.[key];
+      if (typeof value === 'boolean') settings[key] = value;
+    }
+  } catch {
+    // Use Opticm's defaults if the saved settings cannot be read.
+  }
+  return settings;
+}
+
+function toggleEditorOption(option: EditorOption): void {
+  const value = !active.editor.getSettings()[option];
+  for (const tab of documents) {
+    tab.editor.setSettings({ [option]: value });
+  }
+  editorSettings[option] = value;
+  active.editor.focus();
+  localStorage.setItem(editorSettingsKey, JSON.stringify(editorSettings));
+}
 
 function loadEditorModule(): Promise<EditorModule> {
   if (!editorModule) {
@@ -92,7 +138,9 @@ async function addTab(path: string | null = null, text = '', emptyTab?: Document
   editors.append(element);
   try {
     const { createEditor } = await loadEditorModule();
-    const editor = await createEditor(element, { value: text, language: 'ja', codeLanguage: 'java' });
+    const editor = await createEditor(element, {
+      ...editorSettings, value: text, language: 'ja', codeLanguage: 'java',
+    });
     const tab: DocumentTab = {
       path, name: path ? fileName(path) : `Untitled${++untitledCount}.java`,
       savedText: editor.getValue(), lineEnding: text.includes('\r\n') ? '\r\n' : '\n', element, editor,
@@ -200,7 +248,12 @@ async function run(action: () => void | Promise<unknown>): Promise<void> {
   finally { busy = false; }
 }
 
-type MenuItem = { label: string; shortcut?: string; action: () => void | Promise<unknown> } | null;
+type MenuItem = {
+  label: string;
+  shortcut?: string;
+  option?: EditorOption;
+  action: () => void | Promise<unknown>;
+} | null;
 const groups: [string, MenuItem[]][] = [
   ['File', [
     { label: 'New', shortcut: 'Ctrl+N', action: () => addTab() },
@@ -223,6 +276,9 @@ const groups: [string, MenuItem[]][] = [
     { label: 'Find', shortcut: 'Ctrl+F', action: () => active.editor.execute('find') },
     { label: 'Replace', shortcut: 'Ctrl+H', action: () => active.editor.execute('replace') },
   ]],
+  ['Options', editorOptionKeys.map(option => ({
+    label: editorOptions[option], option, action: () => toggleEditorOption(option),
+  }))],
   ['Tools', [
     { label: 'Open Terminal in File Location', action: async () => {
       if (!active.path) { window.alert('Save the file first.'); return; }
@@ -241,14 +297,23 @@ for (const [name, items] of groups) {
   const button = document.createElement('button');
   button.className = 'menu-button';
   button.textContent = name;
+  const optionEntries = new Map<EditorOption, HTMLButtonElement>();
   button.addEventListener('click', event => {
     event.stopPropagation();
     const wasOpen = group.classList.contains('open');
     closeMenus();
+    if (!wasOpen && optionEntries.size) {
+      const settings = active?.editor.getSettings();
+      for (const [option, entry] of optionEntries) {
+        entry.setAttribute('aria-checked', String(settings?.[option] ?? false));
+        entry.disabled = !settings || (option === 'closeBraces' && !settings.closeBrackets);
+      }
+    }
     group.classList.toggle('open', !wasOpen);
   });
   const popup = document.createElement('div');
   popup.className = 'menu-popup';
+  if (items.some(item => item?.option)) popup.setAttribute('role', 'menu');
   for (const item of items) {
     if (!item) {
       const separator = document.createElement('div');
@@ -258,12 +323,17 @@ for (const [name, items] of groups) {
     }
     const entry = document.createElement('button');
     entry.className = 'menu-item';
+    if (item.option) {
+      entry.setAttribute('role', 'menuitemcheckbox');
+      optionEntries.set(item.option, entry);
+    }
     const label = document.createElement('span');
     label.textContent = item.label;
     const shortcut = document.createElement('span');
     shortcut.className = 'shortcut';
     shortcut.textContent = item.shortcut ?? '';
-    entry.append(label, shortcut);
+    entry.append(label);
+    if (!item.option) entry.append(shortcut);
     entry.addEventListener('click', () => { closeMenus(); void run(item.action); });
     popup.append(entry);
   }
