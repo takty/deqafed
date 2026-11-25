@@ -300,6 +300,12 @@ function closeMenus(): void {
   menu.querySelectorAll('.open').forEach(item => item.classList.remove('open'));
 }
 
+function editorOptionItem(option: EditorOption): MenuItem {
+  return {
+    label: messages.editorOptions[option], option, action: () => toggleEditorOption(option),
+  };
+}
+
 function renderMenu(): void {
   const labels = messages.menu;
   document.documentElement.lang = language;
@@ -326,11 +332,21 @@ function renderMenu(): void {
     null,
     { label: labels.find, shortcut: 'Ctrl+F', action: () => active.editor.execute('find') },
     { label: labels.replace, shortcut: 'Ctrl+H', action: () => active.editor.execute('replace') },
+    null,
+    editorOptionItem('closeBrackets'),
+    editorOptionItem('closeBraces'),
+    editorOptionItem('easyLineSelection'),
   ]);
-  const options = renderMenuGroup(labels.options, [
-    ...editorOptionKeys.map(option => ({
-      label: messages.editorOptions[option], option, action: () => toggleEditorOption(option),
-    })),
+  const views = renderMenuGroup(labels.views, [
+    editorOptionItem('structureHighlight'),
+    editorOptionItem('declarationHighlight'),
+    editorOptionItem('referenceHighlight'),
+    editorOptionItem('syntaxHighlight'),
+    editorOptionItem('semanticHighlight'),
+    null,
+    editorOptionItem('functionScrollMarkers'),
+    editorOptionItem('bracketMatching'),
+    editorOptionItem('rulers'),
     null,
   ]);
   const languageGroup = document.createElement('div');
@@ -353,7 +369,7 @@ function renderMenu(): void {
     });
     languageGroup.append(entry);
   }
-  options.append(languageGroup);
+  views.append(languageGroup);
   renderMenuGroup(labels.tools, [
     { label: labels.openTerminal, action: async () => {
       if (!active.path) {
@@ -387,11 +403,13 @@ function renderMenuGroup(name: string, items: MenuItem[]): HTMLDivElement {
   });
   const popup = document.createElement('div');
   popup.className = 'menu-popup';
-  if (items.some(item => item?.option)) popup.setAttribute('role', 'menu');
+  const hasOptions = items.some(item => item?.option);
+  if (hasOptions) popup.setAttribute('role', 'menu');
   for (const item of items) {
     if (!item) {
       const separator = document.createElement('div');
       separator.className = 'separator';
+      if (hasOptions) separator.setAttribute('role', 'separator');
       popup.append(separator);
       continue;
     }
@@ -399,7 +417,10 @@ function renderMenuGroup(name: string, items: MenuItem[]): HTMLDivElement {
     entry.className = 'menu-item';
     if (item.option) {
       entry.setAttribute('role', 'menuitemcheckbox');
+      if (item.option === 'closeBraces') entry.classList.add('menu-item-indented');
       optionEntries.set(item.option, entry);
+    } else if (hasOptions) {
+      entry.setAttribute('role', 'menuitem');
     }
     const label = document.createElement('span');
     label.textContent = item.label;
