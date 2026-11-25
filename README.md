@@ -23,7 +23,7 @@ yarn tauri dev
 
 The project uses Yarn's `node-modules` linker for compatibility with Vite on Windows. Run `yarn install` after changing linker settings so the dependencies are installed in `node_modules`.
 
-Run `yarn build` to create the release executable at `src-tauri/target/release/deqafed.exe`. Run `yarn tauri build` to also generate installers. Use `yarn build:frontend` to build the frontend in `dist`.
+Run `yarn build` to create the release executable at `src-tauri/target/release/Deqafed.exe`. Run `yarn tauri build` to also generate installers. Use `yarn build:frontend` to build the frontend in `dist`.
 
 ## Usage
 
