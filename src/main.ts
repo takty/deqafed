@@ -46,7 +46,6 @@ const editors = document.querySelector<HTMLElement>('#editors')!;
 const status = document.querySelector<HTMLElement>('#status')!;
 const documents: DocumentTab[] = [];
 let active: DocumentTab;
-let untitledCount = 0;
 let busy = false;
 let closingWindow = false;
 type EditorModule = {
@@ -129,6 +128,16 @@ function tabName(tab: DocumentTab): string {
     : fileName(tab.path);
 }
 
+function nextUntitledNumber(): number {
+  const usedNumbers = new Set<number>();
+  for (const tab of documents) {
+    if (tab.path === null) usedNumbers.add(tab.untitledNumber);
+  }
+  let number = 1;
+  while (usedNumbers.has(number)) number++;
+  return number;
+}
+
 function render(): void {
   tabs.replaceChildren();
   for (const tab of documents) {
@@ -173,7 +182,7 @@ async function addTab(path: string | null = null, text = '', emptyTab?: Document
       ...editorSettings, value: text, language, codeLanguage: 'java',
     });
     const tab: DocumentTab = {
-      path, untitledNumber: path === null ? ++untitledCount : 0,
+      path, untitledNumber: path === null ? nextUntitledNumber() : 0,
       savedText: editor.getValue(), lineEnding: text.includes('\r\n') ? '\r\n' : '\n', element, editor,
     };
     editor.on('change', render);
